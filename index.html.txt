@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iraqi Currency Recognition</title>
+    <style>
+        body {
+            background-color: #0d001a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui-container" style="
+    width: 380px;
+    background: linear-gradient(135deg, #1a002c, #000000, #2d004d);
+    border: 2px solid #8a2be2;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0px 8px 24px rgba(138, 43, 226, 0.4);
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    box-sizing: border-box;">
+
+    <h3 style="margin: 0; color: #d8b4fe; text-align: center; font-size: 18px;">Iraqi Currency Recognition</h3>
+
+    <!-- أسماء الأعضاء -->
+    <div style="width: 100%; background: rgba(45, 0, 77, 0.4); border-radius: 8px; padding: 6px; text-align: center; font-size: 11px; color: #c084fc; border: 1px solid #4c1d95;">
+        <div style="font-weight: bold; margin-bottom: 2px; color: #e9d5ff;">فريق العمل:</div>
+        1. كرم الباري &nbsp;|&nbsp; 2. محمد زيد<br>
+        3. علي ليث &nbsp;|&nbsp; 4. علي محمد
+    </div>
+
+    <!-- شاشة الكاميرا -->
+    <div style="width: 100%; height: 210px; background: #0d001a; border-radius: 10px; overflow: hidden; border: 1px solid #4c1d95; position: relative;">
+        <video id="video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+    </div>
+
+    <!-- مربع النتيجة -->
+    <div id="result-box" style="
+        width: 100%;
+        background: rgba(45, 0, 77, 0.6);
+        border: 1px solid #7e22ce;
+        border-radius: 8px;
+        padding: 8px;
+        text-align: center;
+        font-size: 13px;
+        min-height: 65px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;">
+        <span style="color: #a7f3d0;">Status: Ready</span>
+    </div>
+
+    <!-- الأزرار -->
+    <div style="display: flex; gap: 10px; width: 100%;">
+        <button id="snap-btn" onclick="takePhoto()" style="
+            flex: 2;
+            padding: 10px;
+            background: #7e22ce;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(126, 34, 206, 0.4);">take photo</button>
+
+        <button onclick="exitApp()" style="
+            flex: 1;
+            padding: 10px;
+            background: #374151;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;">exit</button>
+    </div>
+</div>
+
+<script>
+    const API_KEY = "TiXORNR9XsplOD8sUK48";
+    const MODEL_ENDPOINT = "classification-of-iraqi-money/21";
+
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const resultBox = document.getElementById('result-box');
+
+    // تشغيل الكاميرا
+    async function startCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "environment" }
+            });
+            video.srcObject = stream;
+        } catch (err) {
+            console.error(err);
+            resultBox.innerHTML = "<span style='color:#f87171;'>Camera Access Denied or Not Supported</span>";
+        }
+    }
+
+    startCamera();
+
+    // التقاط الصورة
+    async function takePhoto() {
+        if (!video.srcObject) {
+            resultBox.innerHTML = "<span style='color:#f87171;'>Camera is not active</span>";
+            return;
+        }
+
+        resultBox.innerHTML = "<span style='color:#fde047;'>Analyzing image...</span>";
+
+        try {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            const base64Image = dataUrl.split(',')[1];
+
+            const url = `https://classify.roboflow.com/${MODEL_ENDPOINT}?api_key=${API_KEY}`;
+
+            let response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: base64Image
+            });
+
+            let data;
+            if (!response.ok) {
+                const altUrl = `https://detect.roboflow.com/${MODEL_ENDPOINT}?api_key=${API_KEY}`;
+                const altResponse = await fetch(altUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: base64Image
+                });
+                data = await altResponse.json();
+            } else {
+                data = await response.json();
+            }
+
+            processRoboflowResponse(data);
+
+        } catch(e) {
+            console.error(e);
+            resultBox.innerHTML = "<span style='color:#f87171;'>Connection Error</span>";
+        }
+    }
+
+    function processRoboflowResponse(data) {
+        let className = "Unknown";
+        let confidence = 0;
+
+        if (data.top) {
+            className = data.top;
+            confidence = data.confidence ? Math.round(data.confidence * 100) : 0;
+        }
+        else if (data.predictions && Array.isArray(data.predictions) && data.predictions.length > 0) {
+            let topPred = data.predictions.reduce((prev, current) => (prev.confidence > current.confidence) ? prev : current);
+            className = topPred.class;
+            confidence = Math.round(topPred.confidence * 100);
+        }
+        else if (data.predictions && typeof data.predictions === 'object') {
+            let maxConf = 0;
+            for (let [cls, info] of Object.entries(data.predictions)) {
+                let conf = typeof info === 'object' ? info.confidence : info;
+                if (conf > maxConf) {
+                    maxConf = conf;
+                    className = cls;
+                }
+            }
+            confidence = Math.round(maxConf * 100);
+        }
+
+        if (className !== "Unknown") {
+            let digits = className.replace(/\D/g, '');
+            let iqd = digits ? parseInt(digits) : 0;
+            let usd = iqd > 0 ? (iqd / 1530).toFixed(2) : "0.00";
+
+            resultBox.innerHTML =
+                '<div style="font-size:15px; font-weight:bold; color:#a7f3d0;">Note: ' + className + '</div>' +
+                '<div style="color:#e9d5ff;">IQD: ' + iqd.toLocaleString() + ' | USD: $' + usd + '</div>' +
+                '<div style="font-size:11px; color:#c084fc;">Confidence: ' + confidence + '%</div>';
+        } else {
+            resultBox.innerHTML = "<span style='color:#f87171;'>Note: Unknown Currency</span>";
+        }
+    }
+
+    function exitApp() {
+        if (video.srcObject) {
+            video.srcObject.getTracks().forEach(track => track.stop());
+        }
+        document.getElementById('ui-container').innerHTML = "<h4 style='color:#c084fc; text-align:center;'>Application Closed</h4>";
+    }
+</script>
+</body>
+</html>
