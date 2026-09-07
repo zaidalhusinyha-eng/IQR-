@@ -1,92 +1,89 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iraqi Currency Recognition</title>
-    <link rel="icon" type="image/x-icon" href="favicon.png.ico">
-    <link rel="manifest" href="manifest.json">
-    <style>
-        body {
-            background-color: #0d001a;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            font-family: Arial, sans-serif;
-        }
-    </style>
-</head>
-<body>
+# ===============================
+# 1. تثبيت المكتبات (لضمان عمل Colab)
+# ===============================
+!pip install -q opencv-python-headless
 
+# ===============================
+# 2. استيراد المكتبات
+# ===============================
+from IPython.display import HTML, display
+
+# ===============================
+# 3. عرض الواجهة النهائية وتشفير المنطق بـ JS
+# ===============================
+ui_html = """
 <div id="ui-container" style="
-    width: 380px;
+    width: 460px;
     background: linear-gradient(135deg, #1a002c, #000000, #2d004d);
     border: 2px solid #8a2be2;
     border-radius: 16px;
-    padding: 16px;
+    padding: 20px;
     box-shadow: 0px 8px 24px rgba(138, 43, 226, 0.4);
+    font-family: Arial, sans-serif;
     color: #ffffff;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 15px;
+    margin: 10px auto;
     box-sizing: border-box;">
 
-    <h3 style="margin: 0; color: #d8b4fe; text-align: center; font-size: 18px;">Iraqi Currency Recognition</h3>
+    <h3 style="margin: 0; color: #d8b4fe; text-align: center; font-size: 22px; font-weight: bold;">Iraqi Currency Recognition</h3>
 
     <!-- أسماء الأعضاء -->
-    <div style="width: 100%; background: rgba(45, 0, 77, 0.4); border-radius: 8px; padding: 6px; text-align: center; font-size: 11px; color: #c084fc; border: 1px solid #4c1d95;">
-        <div style="font-weight: bold; margin-bottom: 2px; color: #e9d5ff;">فريق العمل:</div>
+    <div style="width: 100%; background: rgba(45, 0, 77, 0.5); border-radius: 10px; padding: 10px; text-align: center; font-size: 13px; color: #c084fc; border: 1px solid #4c1d95; box-sizing: border-box;">
+        <div style="font-weight: bold; margin-bottom: 4px; color: #e9d5ff; font-size: 14px;">فريق العمل:</div>
         1. كرم الباري &nbsp;|&nbsp; 2. محمد زيد<br>
         3. علي ليث &nbsp;|&nbsp; 4. علي محمد
     </div>
 
     <!-- شاشة الكاميرا -->
-    <div style="width: 100%; height: 210px; background: #0d001a; border-radius: 10px; overflow: hidden; border: 1px solid #4c1d95; position: relative;">
+    <div style="width: 100%; height: 250px; background: #0d001a; border-radius: 10px; overflow: hidden; border: 1px solid #4c1d95; position: relative;">
         <video id="video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
         <canvas id="canvas" style="display:none;"></canvas>
     </div>
 
-    <!-- مربع النتيجة -->
+    <!-- مربع النتيجة الكبيرة -->
     <div id="result-box" style="
         width: 100%;
-        background: rgba(45, 0, 77, 0.6);
-        border: 1px solid #7e22ce;
-        border-radius: 8px;
-        padding: 8px;
+        background: rgba(35, 0, 60, 0.85);
+        border: 2px solid #a855f7;
+        border-radius: 12px;
+        padding: 20px 15px;
         text-align: center;
-        font-size: 13px;
-        min-height: 65px;
+        min-height: 120px;
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
-        justify-content: center;">
-        <span style="color: #a7f3d0;">Status: Ready</span>
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);">
+        <span style="color: #a7f3d0; font-weight: bold; font-size: 22px;">Status: Ready</span>
     </div>
 
     <!-- الأزرار -->
-    <div style="display: flex; gap: 10px; width: 100%;">
+    <div style="display: flex; gap: 12px; width: 100%;">
         <button id="snap-btn" onclick="takePhoto()" style="
             flex: 2;
-            padding: 10px;
+            padding: 12px;
             background: #7e22ce;
             color: white;
             border: none;
             border-radius: 8px;
             font-weight: bold;
+            font-size: 15px;
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(126, 34, 206, 0.4);">take photo</button>
 
         <button onclick="exitApp()" style="
             flex: 1;
-            padding: 10px;
+            padding: 12px;
             background: #374151;
             color: white;
             border: none;
             border-radius: 8px;
             font-weight: bold;
+            font-size: 15px;
             cursor: pointer;">exit</button>
     </div>
 </div>
@@ -103,12 +100,12 @@
     async function startCamera() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "environment" }
+                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }
             });
             video.srcObject = stream;
         } catch (err) {
             console.error(err);
-            resultBox.innerHTML = "<span style='color:#f87171;'>Camera Access Denied or Not Supported</span>";
+            resultBox.innerHTML = "<span style='color:#f87171; font-weight:bold; font-size: 18px;'>Camera Access Denied</span>";
         }
     }
 
@@ -117,11 +114,11 @@
     // التقاط الصورة
     async function takePhoto() {
         if (!video.srcObject) {
-            resultBox.innerHTML = "<span style='color:#f87171;'>Camera is not active</span>";
+            resultBox.innerHTML = "<span style='color:#f87171; font-weight:bold; font-size: 18px;'>Camera is not active</span>";
             return;
         }
 
-        resultBox.innerHTML = "<span style='color:#fde047;'>Analyzing image...</span>";
+        resultBox.innerHTML = "<span style='color:#fde047; font-weight:bold; font-size: 20px;'>Analyzing image...</span>";
 
         try {
             const context = canvas.getContext('2d');
@@ -157,10 +154,11 @@
 
         } catch(e) {
             console.error(e);
-            resultBox.innerHTML = "<span style='color:#f87171;'>Connection Error</span>";
+            resultBox.innerHTML = "<span style='color:#f87171; font-weight:bold; font-size: 18px;'>Connection Error</span>";
         }
     }
 
+    // عرض النتيجة
     function processRoboflowResponse(data) {
         let className = "Unknown";
         let confidence = 0;
@@ -192,11 +190,11 @@
             let usd = iqd > 0 ? (iqd / 1530).toFixed(2) : "0.00";
 
             resultBox.innerHTML =
-                '<div style="font-size:15px; font-weight:bold; color:#a7f3d0;">Note: ' + className + '</div>' +
-                '<div style="color:#e9d5ff;">IQD: ' + iqd.toLocaleString() + ' | USD: $' + usd + '</div>' +
-                '<div style="font-size:11px; color:#c084fc;">Confidence: ' + confidence + '%</div>';
+                '<div style="font-size:22px; font-weight:bold; color:#a7f3d0; margin-bottom:6px;">Note: ' + className + '</div>' +
+                '<div style="font-size:17px; color:#e9d5ff; font-weight:600; margin-bottom:4px;">IQD: ' + iqd.toLocaleString() + ' | USD: $' + usd + '</div>' +
+                '<div style="font-size:14px; color:#c084fc;">Confidence: ' + confidence + '%</div>';
         } else {
-            resultBox.innerHTML = "<span style='color:#f87171;'>Note: Unknown Currency</span>";
+            resultBox.innerHTML = "<span style='color:#f87171; font-weight:bold; font-size: 20px;'>Note: Unknown Currency</span>";
         }
     }
 
@@ -206,13 +204,6 @@
         }
         document.getElementById('ui-container').innerHTML = "<h4 style='color:#c084fc; text-align:center;'>Application Closed</h4>";
     }
-    if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(() => console.log('SW Registered Successfully'))
-      .catch((err) => console.log('SW Registration Failed:', err));
-  });
-}
 </script>
-</body>
-</html>
+"""
+display(HTML(ui_html))
